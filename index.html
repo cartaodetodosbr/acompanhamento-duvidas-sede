@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#19A687">
+  <title>Triagem | Mudança de Sede</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="portal.css">
+</head>
+<body>
+  <div class="brand-stripe" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+  <div class="shell">
+    <!-- ================= MENU LATERAL ================= -->
+    <aside class="sidebar">
+      <div class="brand-logos">
+        <img src="../assets/logo-todos.png" class="logo-todos" width="720" height="260" alt="TODOS Empreendimentos">
+        <span class="logo-divider" aria-hidden="true"></span>
+        <img src="../assets/logo-pessoas-cultura.png" class="logo-pc" width="720" height="226" alt="Pessoas e Cultura">
+      </div>
+
+      <nav class="nav" role="tablist" aria-label="Seções do portal">
+        <button type="button" class="nav-item" role="tab" id="tab-geral" aria-controls="panel-geral" aria-selected="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.5 11 12 4l8.5 7M6 9.5V20h4.5v-5.5h3V20H18V9.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Visão Geral
+        </button>
+        <button type="button" class="nav-item" role="tab" id="tab-perguntas" aria-controls="panel-perguntas" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 19.5l1.2-3.6C4.4 14.6 3.5 12.9 3.5 11c0-3.9 3.8-7 8.5-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1" fill="currentColor"/><circle cx="12" cy="11" r="1" fill="currentColor"/><circle cx="15.5" cy="11" r="1" fill="currentColor"/></svg>
+          Perguntas
+        </button>
+      </nav>
+
+      <figure class="side-photo" aria-hidden="true">
+        <img src="../assets/sede-todos.jpg" width="596" height="980" alt="">
+      </figure>
+    </aside>
+
+    <!-- ================= ÁREA PRINCIPAL ================= -->
+    <div class="main">
+      <header class="header">
+        <div>
+          <h1 class="title">
+            <span class="title-main">Mudança de Sede</span><span class="visually-hidden"> | </span>
+            <span class="title-sub">TODOS Empreendimentos</span>
+          </h1>
+          <p class="route" aria-label="De Ipatinga para Ribeirão Preto">
+            <span>Ipatinga</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h15m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Ribeirão Preto</span>
+          </p>
+          <p class="lead">Acompanhamento das principais dúvidas sobre o processo de mudança de sede de Ipatinga para Ribeirão Preto.</p>
+        </div>
+        <div class="update-status" aria-live="polite">
+          <p class="update-time">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Atualizado em: <strong id="last-update">—</strong></span>
+          </p>
+          <p class="update-auto" id="update-auto"><span class="dot" aria-hidden="true"></span>Atualização automática</p>
+        </div>
+      </header>
+
+      <!-- ============ ESTADOS DE ACESSO ============ -->
+      <section class="state-card" id="state-config" hidden aria-labelledby="config-title">
+        <h2 id="config-title">CONFIGURAÇÃO PENDENTE</h2>
+        <p>Preencha em <code>portal.js</code> (bloco <code>CONFIG</code>):</p>
+        <ul id="config-missing"></ul>
+      </section>
+
+      <section class="state-card state-card--login" id="state-login" hidden aria-labelledby="login-title">
+        <h2 id="login-title">Acesso restrito</h2>
+        <p>Entre com sua conta corporativa Microsoft.</p>
+        <button type="button" class="btn btn-primary" id="btn-login">Entrar com a conta corporativa</button>
+      </section>
+
+      <div class="alert" id="state-error" role="alert" hidden>
+        <p id="error-text"></p>
+        <button type="button" class="btn-link" id="btn-retry">Tentar novamente</button>
+      </div>
+
+      <main id="app" hidden>
+        <!-- ============ VISÃO GERAL ============ -->
+        <section id="panel-geral" role="tabpanel" aria-labelledby="tab-geral">
+          <div class="kpis">
+            <article class="kpi kpi--blue">
+              <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 19.5l1.2-3.6C4.4 14.6 3.5 12.9 3.5 11c0-3.9 3.8-7 8.5-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1.1" fill="currentColor"/><circle cx="12" cy="11" r="1.1" fill="currentColor"/><circle cx="15.5" cy="11" r="1.1" fill="currentColor"/></svg></span>
+              <div><p class="kpi-value" id="kpi-total">–</p><p class="kpi-label">Total de dúvidas</p></div>
+            </article>
+            <article class="kpi kpi--pink">
+              <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="3.5" width="14" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              <div><p class="kpi-value" id="kpi-novas">–</p><p class="kpi-label">Dúvidas novas</p></div>
+            </article>
+            <article class="kpi kpi--lilac">
+              <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              <div><p class="kpi-value" id="kpi-tratamento">–</p><p class="kpi-label">Em tratamento</p></div>
+            </article>
+          </div>
+
+          <div class="analysis">
+            <section class="card" aria-labelledby="temas-title">
+              <h2 class="card-title" id="temas-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="12" width="3.5" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="10.25" y="7" width="3.5" height="13" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="16.5" y="3.5" width="3.5" height="16.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+                Dúvidas por tema
+              </h2>
+              <ol class="bars" id="bars"></ol>
+              <p class="empty" id="bars-empty" hidden>Sem dúvidas registradas.</p>
+            </section>
+
+            <section class="card" aria-labelledby="nuvem-title">
+              <h2 class="card-title" id="nuvem-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 19.5l1.2-3.6C4.4 14.6 3.5 12.9 3.5 11c0-3.9 3.8-7 8.5-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1" fill="currentColor"/><circle cx="12" cy="11" r="1" fill="currentColor"/><circle cx="15.5" cy="11" r="1" fill="currentColor"/></svg>
+                Nuvem de palavras
+              </h2>
+              <div class="cloud" id="cloud" aria-label="Nuvem de palavras"></div>
+              <p class="empty" id="cloud-empty" hidden>Sem dúvidas registradas.</p>
+            </section>
+          </div>
+
+          <section class="card card--table" aria-labelledby="recentes-title">
+            <div class="card-head">
+              <h2 class="card-title" id="recentes-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 19.5l1.2-3.6C4.4 14.6 3.5 12.9 3.5 11c0-3.9 3.8-7 8.5-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1" fill="currentColor"/><circle cx="12" cy="11" r="1" fill="currentColor"/><circle cx="15.5" cy="11" r="1" fill="currentColor"/></svg>
+                Perguntas recentes
+              </h2>
+              <button type="button" class="btn btn-outline" id="btn-ver-todas">
+                Ver todas as perguntas
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h13m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <table class="qtable">
+              <thead><tr><th scope="col" class="c-num">Nº</th><th scope="col">Pergunta</th><th scope="col" class="c-tema">Tema</th><th scope="col" class="c-status">Status</th></tr></thead>
+              <tbody id="recentes-rows"></tbody>
+            </table>
+            <p class="empty" id="recentes-empty" hidden>Sem dúvidas registradas.</p>
+          </section>
+        </section>
+
+        <!-- ============ PERGUNTAS ============ -->
+        <section id="panel-perguntas" role="tabpanel" aria-labelledby="tab-perguntas" hidden>
+          <section class="card card--table" aria-labelledby="perguntas-title">
+            <h2 class="card-title card-title--lg" id="perguntas-title">Perguntas</h2>
+            <div class="filters" role="search">
+              <label class="field field--search">
+                <span class="visually-hidden">Buscar pergunta</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <input type="search" id="f-busca" placeholder="Buscar pergunta..." autocomplete="off">
+              </label>
+              <label class="field">
+                <span class="field-label">Tema</span>
+                <select id="f-tema"><option value="">Todos</option></select>
+              </label>
+              <label class="field">
+                <span class="field-label">Status</span>
+                <select id="f-status">
+                  <option value="">Todos</option>
+                  <option value="Nova">Nova</option>
+                  <option value="Em tratamento">Em tratamento</option>
+                </select>
+              </label>
+            </div>
+            <p class="q-count" id="q-count" aria-live="polite"></p>
+            <table class="qtable">
+              <thead><tr><th scope="col" class="c-num">Nº</th><th scope="col">Pergunta</th><th scope="col" class="c-tema">Tema</th><th scope="col" class="c-status">Status</th></tr></thead>
+              <tbody id="q-rows"></tbody>
+            </table>
+            <p class="empty" id="q-empty" hidden></p>
+            <button type="button" class="btn btn-outline q-more" id="q-more" hidden>Mostrar mais</button>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="vendor/msal-browser.min.js"></script>
+  <script src="portal.js"></script>
+</body>
+</html>
