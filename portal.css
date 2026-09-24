@@ -9,10 +9,10 @@
   font-style: normal;
   font-display: swap;
   src: local("Panton Bold"), local("Panton-Bold"),
-       url("../assets/fonts/Panton-Bold.woff2") format("woff2"),
-       url("../assets/fonts/Panton-Bold.woff") format("woff"),
-       url("../assets/fonts/Panton-Bold.otf") format("opentype"),
-       url("../assets/fonts/Panton-Bold.ttf") format("truetype");
+       url("assets/fonts/Panton-Bold.woff2") format("woff2"),
+       url("assets/fonts/Panton-Bold.woff") format("woff"),
+       url("assets/fonts/Panton-Bold.otf") format("opentype"),
+       url("assets/fonts/Panton-Bold.ttf") format("truetype");
 }
 
 :root {

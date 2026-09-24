@@ -1,8 +1,8 @@
 /* =========================================================
    Painel de Triagem | Mudança de Sede — TODOS Empreendimentos
-   Leitura REAL da lista SharePoint via Microsoft Graph, com login
-   corporativo (MSAL). Nenhum segredo neste arquivo.
-   Coleta ANÔNIMA: o painel não lê nem exibe nome, e-mail ou idEnvio.
+   Leitura REAL via fluxo Power Automate "Portal Mudança de Sede - Consultar
+   Dúvidas" (GET), que lê o SharePoint e devolve só campos anônimos.
+   Coleta ANÔNIMA: o painel não recebe nem exibe nome, e-mail ou idEnvio.
    ========================================================= */
 (function () {
   "use strict";
@@ -11,24 +11,10 @@
      1. CONFIGURAÇÃO (campos vazios = CONFIGURAÇÃO PENDENTE)
      --------------------------------------------------------- */
   const CONFIG = {
-    tenantId: "",   // CONFIGURAÇÃO PENDENTE — ID do diretório (tenant) no Entra ID
-    clientId: "",   // CONFIGURAÇÃO PENDENTE — ID do aplicativo (client) registrado no Entra ID
-    siteUrl: "",    // CONFIGURAÇÃO PENDENTE — URL do site "People Analytics - Pessoas e Cultura"
-    listName: "Mudança de Sede - Dúvidas",
-    listId: "",
-
-    // Nomes INTERNOS das colunas usadas pelo painel
-    campos: {
-      idEnvio: "IdEnvio",       // usado só para descartar gravação duplicada; nunca exibido
-      dataHora: "DataHora",
-      numero: "NumeroDuvida",
-      duvida: "Duvida",
-      status: "Status",
-      tema: "Tema",             // se a coluna não existir ou estiver vazia, o tema é identificado automaticamente
-      modoTeste: "ModoTeste"
-    },
-
-    escopos: ["https://graph.microsoft.com/Sites.Read.All"],
+    // URL do gatilho "When an HTTP request is received" do fluxo de CONSULTA (método GET).
+    // Não é o endpoint do formulário. Nenhuma outra credencial fica neste arquivo.
+    endpointConsulta: "https://defaulte93279240f9745ba871f4a124f3343.19.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/5387eff6ce27471a8ae77937130d510e/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=PQQsq6cfu1OjiZu1cf3cPRk1AaWouLrRQ7grrYD2MGY",
+    timeoutMs: 30000,
     intervaloAtualizacaoMs: 60000,
     fuso: "America/Sao_Paulo",
     recentes: 5,
@@ -36,7 +22,7 @@
     termosNuvem: 30
   };
 
-  const GRAPH = "https://graph.microsoft.com/v1.0";
+
   const semAcento = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const chaveNome = (s) => semAcento(s).toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -160,153 +146,52 @@
   }
 
   /* ---------------------------------------------------------
-     5. AUTENTICAÇÃO (MSAL) E MICROSOFT GRAPH
+     5. LEITURA DOS DADOS (fluxo de consulta, GET simples — sem cabeçalhos extras)
+     Retorno esperado: { ok: true, atualizadoEm, total, perguntas: [
+       { numero, dataHora, pergunta, status, tema } ] }
      --------------------------------------------------------- */
   class ErroPortal extends Error {
     constructor(tipo, mensagem) { super(mensagem); this.tipo = tipo; }
   }
 
-  let pca = null;
-  let conta = null;
-
-  function configuracaoPendente() {
-    const faltando = [];
-    if (!CONFIG.tenantId) faltando.push(["tenantId", "ID do diretório (tenant) do Entra ID"]);
-    if (!CONFIG.clientId) faltando.push(["clientId", "ID do aplicativo (client) registrado no Entra ID"]);
-    if (!CONFIG.siteUrl) faltando.push(["siteUrl", "URL do site SharePoint \"People Analytics - Pessoas e Cultura\""]);
-    return faltando;
-  }
-
-  const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, "");
-
-  async function iniciarAuth() {
-    if (!window.msal) throw new ErroPortal("config", "Biblioteca de autenticação não carregada (vendor/msal-browser.min.js).");
-    pca = new window.msal.PublicClientApplication({
-      auth: {
-        clientId: CONFIG.clientId,
-        authority: "https://login.microsoftonline.com/" + CONFIG.tenantId,
-        redirectUri: redirectUri(),
-        navigateToLoginRequestUrl: true
-      },
-      cache: { cacheLocation: "localStorage" }
-    });
-    await pca.initialize();
-    const retorno = await pca.handleRedirectPromise();
-    if (retorno && retorno.account) pca.setActiveAccount(retorno.account);
-    conta = pca.getActiveAccount() || pca.getAllAccounts()[0] || null;
-    if (conta) pca.setActiveAccount(conta);
-  }
-
-  function entrar() {
-    pca.loginRedirect({ scopes: CONFIG.escopos, prompt: "select_account" });
-  }
-
-  async function obterToken() {
-    if (!conta) throw new ErroPortal("login", "Login necessário.");
-    try {
-      const r = await pca.acquireTokenSilent({ scopes: CONFIG.escopos, account: conta });
-      return r.accessToken;
-    } catch (e) {
-      if (e instanceof window.msal.InteractionRequiredAuthError) throw new ErroPortal("login", "Sessão expirada.");
-      throw new ErroPortal("auth", "Não foi possível obter o acesso (" + (e.errorCode || e.message) + ").");
-    }
-  }
-
-  async function graphGet(url, tentativa) {
-    const token = await obterToken();
+  async function carregarRegistros() {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), CONFIG.timeoutMs);
     let resp;
     try {
-      resp = await fetch(url.startsWith("http") ? url : GRAPH + url, {
-        headers: { Authorization: "Bearer " + token, Accept: "application/json" },
-        cache: "no-store"
-      });
+      resp = await fetch(CONFIG.endpointConsulta, { method: "GET", cache: "no-store", signal: controller.signal });
     } catch (e) {
-      throw new ErroPortal("rede", "Sem conexão com o Microsoft Graph.");
+      // Bloqueio de CORS também chega aqui; o motivo exato aparece no console (F12)
+      throw new ErroPortal("rede", e && e.name === "AbortError"
+        ? "O serviço de dados demorou para responder."
+        : "Não foi possível conectar ao serviço de dados.");
+    } finally {
+      clearTimeout(t);
     }
-    if ((resp.status === 429 || resp.status === 503) && (tentativa || 0) < 2) {
-      const espera = Math.min(parseInt(resp.headers.get("Retry-After") || "5", 10), 30) * 1000;
-      await new Promise((r) => setTimeout(r, espera));
-      return graphGet(url, (tentativa || 0) + 1);
-    }
-    if (resp.status === 401) throw new ErroPortal("login", "Sessão expirada.");
-    if (resp.status === 403) throw new ErroPortal("permissao", "Sua conta não tem permissão para ler a lista \"" + CONFIG.listName + "\" no SharePoint.");
-    if (resp.status === 404) throw new ErroPortal("naoEncontrado", "Site ou lista não encontrados. Confira siteUrl e listName em portal.js.");
-    if (!resp.ok) throw new ErroPortal("http", "O Microsoft Graph respondeu HTTP " + resp.status + ".");
-    return resp.json();
-  }
-
-  let siteId = null;
-  let listId = CONFIG.listId || null;
-
-  async function resolverLista() {
-    if (!siteId) {
-      const u = new URL(CONFIG.siteUrl);
-      const m = u.pathname.match(/^\/(sites|teams)\/[^/]+/i);
-      const caminho = m ? m[0] : "";
-      const site = await graphGet("/sites/" + u.hostname + ":" + (caminho || "/") + "?$select=id");
-      siteId = site.id;
-    }
-    if (!listId) {
-      const alvo = chaveNome(CONFIG.listName);
-      let url = "/sites/" + siteId + "/lists?$select=id,displayName&$top=200";
-      while (url && !listId) {
-        const r = await graphGet(url);
-        const achou = (r.value || []).find((l) => chaveNome(l.displayName) === alvo);
-        if (achou) listId = achou.id;
-        url = r["@odata.nextLink"];
-      }
-      if (!listId) throw new ErroPortal("naoEncontrado", "Lista \"" + CONFIG.listName + "\" não encontrada no site configurado.");
-    }
-  }
-
-  const ehTeste = (v) => v === true || /^(yes|sim|true|1)$/i.test(String(v == null ? "" : v).trim());
-
-  async function carregarRegistros() {
-    await resolverLista();
-    const c = CONFIG.campos;
-    // Campos lidos: somente os necessários para a triagem. Nenhum dado pessoal é lido ou guardado.
-    const sel = [c.idEnvio, c.dataHora, c.numero, c.duvida, c.status, c.tema, c.modoTeste].filter(Boolean).join(",");
-    const base = "/sites/" + siteId + "/lists/" + listId + "/items?$select=id,createdDateTime&$top=500&$expand=fields";
-    async function buscar(url) {
-      const itens = [];
-      while (url) {
-        const r = await graphGet(url);
-        itens.push.apply(itens, r.value || []);
-        url = r["@odata.nextLink"];
-      }
-      return itens;
-    }
-    let brutos;
-    try {
-      brutos = await buscar(base + "($select=" + sel + ")");
-    } catch (e) {
-      // Alguma coluna configurada não existe na lista (ex.: Tema): lê os campos disponíveis e usa só os necessários
-      if (e.tipo !== "http") throw e;
-      brutos = await buscar(base);
+    if (!resp.ok) throw new ErroPortal("http", "O serviço de dados respondeu HTTP " + resp.status + ".");
+    let dados;
+    try { dados = await resp.json(); } catch (_) { throw new ErroPortal("formato", "Resposta do serviço de dados em formato inválido."); }
+    if (!dados || dados.ok !== true || !Array.isArray(dados.perguntas)) {
+      throw new ErroPortal("formato", "Resposta do serviço de dados sem a lista de perguntas.");
     }
 
-    const vistos = new Set();
     const registros = [];
-    brutos.forEach((item) => {
-      const f = item.fields || {};
-      const duvida = String(f[c.duvida] || "").trim();
-      if (!duvida || ehTeste(f[c.modoTeste])) return;               // válido = dúvida preenchida e não-teste
-      const chave = [f[c.idEnvio] || item.id, f[c.numero] || "", duvida].join("|");
-      if (vistos.has(chave)) return;                                  // ignora gravação duplicada do mesmo envio
-      vistos.add(chave);
-      const d = new Date(f[c.dataHora] || item.createdDateTime);
-      const temaLista = String((f[c.tema] && f[c.tema].Value) || f[c.tema] || "").trim();
+    dados.perguntas.forEach((p, i) => {
+      const duvida = String((p && p.pergunta) || "").trim();
+      if (!duvida) return;
+      const d = new Date(p.dataHora);
+      const temaLista = String((p.tema && p.tema.Value) || p.tema || "").trim();
       registros.push({
-        id: item.id,
+        ordem: i,
         data: isNaN(d) ? null : d,
-        numero: Number(f[c.numero]) || 0,
+        numero: Number(p.numero) || 0,
         duvida,
-        status: normalizarStatus(f[c.status]),
+        status: normalizarStatus(p.status),
         tema: temaLista || classificarTema(duvida)
       });
     });
     // Nº = ordem de chegada (1 = primeira dúvida recebida)
-    registros.sort((a, b) => ((a.data ? a.data.getTime() : 0) - (b.data ? b.data.getTime() : 0)) || a.numero - b.numero);
+    registros.sort((a, b) => ((a.data ? a.data.getTime() : 0) - (b.data ? b.data.getTime() : 0)) || a.numero - b.numero || a.ordem - b.ordem);
     registros.forEach((r, i) => { r.n = i + 1; });
     return registros;
   }
@@ -318,7 +203,6 @@
   const el = {
     lastUpdate: $("last-update"), updateAuto: $("update-auto"),
     stateConfig: $("state-config"), configMissing: $("config-missing"),
-    stateLogin: $("state-login"), btnLogin: $("btn-login"),
     stateError: $("state-error"), errorText: $("error-text"), btnRetry: $("btn-retry"),
     app: $("app"),
     tabGeral: $("tab-geral"), tabPerguntas: $("tab-perguntas"),
@@ -504,7 +388,6 @@
   }
 
   function ligarEventos() {
-    el.btnLogin.addEventListener("click", entrar);
     el.btnRetry.addEventListener("click", () => atualizar());
     el.tabGeral.addEventListener("click", () => selecionarAba("geral"));
     el.tabPerguntas.addEventListener("click", () => selecionarAba("perguntas"));
@@ -548,19 +431,13 @@
       estado.registros = await carregarRegistros();
       estado.carregado = true;
       el.stateError.hidden = true;
-      el.stateLogin.hidden = true;
       el.updateAuto.classList.remove("is-error");
       el.app.hidden = false;
       el.lastUpdate.textContent = dataHora(new Date());
       renderTudo();
     } catch (e) {
-      if (e.tipo === "login") {
-        el.app.hidden = !estado.carregado;
-        el.stateLogin.hidden = false;
-      } else {
-        const base = e.message || "Falha ao carregar os dados.";
-        mostrarErro(estado.carregado ? base + " Exibindo os últimos dados carregados." : base);
-      }
+      const base = e.message || "Falha ao carregar os dados.";
+      mostrarErro(estado.carregado ? base + " Exibindo os últimos dados carregados." : base);
     } finally {
       carregando = false;
       el.updateAuto.classList.remove("is-loading");
@@ -570,7 +447,7 @@
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { clearTimeout(timer); return; }
-    if (conta && !carregando) atualizar();
+    if (CONFIG.endpointConsulta && !carregando) atualizar();
   });
 
   /* ---------------------------------------------------------
@@ -580,25 +457,15 @@
     ligarEventos();
     selecionarAba(location.hash === "#perguntas" ? "perguntas" : "geral");
 
-    const faltando = configuracaoPendente();
-    if (faltando.length) {
-      faltando.forEach(([chave, desc]) => {
-        const li = document.createElement("li");
-        li.appendChild(no("code", null, chave));
-        li.appendChild(document.createTextNode(" — " + desc));
-        el.configMissing.appendChild(li);
-      });
+    if (!CONFIG.endpointConsulta) {
+      const li = document.createElement("li");
+      li.appendChild(no("code", null, "endpointConsulta"));
+      li.appendChild(document.createTextNode(" — URL do fluxo de consulta do Power Automate"));
+      el.configMissing.appendChild(li);
       el.stateConfig.hidden = false;
       el.updateAuto.classList.add("is-error");
       return;
     }
-    try {
-      await iniciarAuth();
-    } catch (e) {
-      mostrarErro("Falha na autenticação: " + (e.errorCode || e.message));
-      return;
-    }
-    if (!conta) { el.stateLogin.hidden = false; return; }
     atualizar();
   }
 
