@@ -37,16 +37,19 @@
     return (!s || s === "nova" || s === "novo") ? "Nova" : "Em tratamento";
   }
 
-  // Identificação automática de tema (usada quando a coluna Tema está vazia). Primeira regra que casar vence.
+  // Identificação automática de tema (usada quando a coluna Tema está vazia). Primeira regra que casar vence;
+  // temas de assunto vêm antes de Cronograma.
   const TEMAS = [
-    ["Cronograma e prazos", /\b(prazo|prazos|data|datas|quando|cronograma|previs|inicio|início|calendario|calendário|etapa|fase)/],
     ["Moradia e custo de vida", /\b(morad|moraria|aluguel|casa|imovel|imóvel|apartamento|custo de vida|hospedagem|hotel)/],
     ["Transporte e deslocamento", /\b(transporte|desloca|onibus|ônibus|fretado|carro|viagem|viagens|estacionamento|distancia|distância|vale.?transporte)/],
     ["Família e dependentes", /\b(famil|filho|filha|esposa|marido|conjuge|cônjuge|dependente|escola|creche)/],
     ["Benefícios e remuneração", /\b(benefic|salari|salário|remunera|auxilio|auxílio|ajuda de custo|plano de saude|plano de saúde|bonus|bônus|reembolso|vale)/],
     ["Trabalho, jornada e flexibilidade", /\b(remoto|home office|hibrid|híbrid|jornada|horario|horário|escala|flexib|presencial|turno)/],
     ["Estrutura e local de trabalho", /\b(estrutura|escritorio|escritório|predio|prédio|sede|infraestrutura|espaço|espaco|sala|equipamento|local de trabalho)/],
-    ["Carreira e pessoas", /\b(carreira|cargo|promo|desligamento|demiss|vaga|contrata|equipe|time|lider|líder|gestor)/]
+    ["Carreira e pessoas", /\b(carreira|cargo|promo|desligamento|demiss|vaga|contrata|equipe|time|lider|líder|gestor)/],
+    // Cronograma por último: só vence quando a pergunta não trata de outro assunto.
+    // Sem "quando"/"previsto": aparecem em quase toda pergunta e puxavam tudo para cá.
+    ["Cronograma e prazos", /\b(prazo|prazos|data|datas|cronograma|inicio|início|calendario|calendário|etapa|etapas|fase|fases)/]
   ];
   function classificarTema(texto) {
     const t = String(texto || "").toLowerCase();
