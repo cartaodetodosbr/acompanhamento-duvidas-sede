@@ -28,8 +28,8 @@
 
   /* ---------------------------------------------------------
      2. STATUS E TEMAS
-     O tema vem PRONTO da coluna Tema do SharePoint. O portal não classifica
-     textos: só confere se o valor é um dos 8 temas oficiais.
+     Tema: valor da coluna Tema do SharePoint; se vazio, identificado pela
+     lógica original de palavras-chave (classificarTema).
      --------------------------------------------------------- */
   // Só existem dois status no painel. Vazio ou "Nova/Novo" = Nova; qualquer outro valor = Em tratamento.
   function normalizarStatus(v) {
@@ -37,23 +37,21 @@
     return (!s || s === "nova" || s === "novo") ? "Nova" : "Em tratamento";
   }
 
-  const TEMAS_OFICIAIS = [
-    "Cronograma e etapas",
-    "Critérios de transferência e situação individual",
-    "Modelo de trabalho",
-    "Mobilidade e mudança",
-    "Moradia",
-    "Benefícios e apoio familiar",
-    "Remuneração e contrato",
-    "Estrutura organizacional e operação"
+  // Identificação automática de tema (usada quando a coluna Tema está vazia). Primeira regra que casar vence.
+  const TEMAS = [
+    ["Cronograma e prazos", /\b(prazo|prazos|data|datas|quando|cronograma|previs|inicio|início|calendario|calendário|etapa|fase)/],
+    ["Moradia e custo de vida", /\b(morad|moraria|aluguel|casa|imovel|imóvel|apartamento|custo de vida|hospedagem|hotel)/],
+    ["Transporte e deslocamento", /\b(transporte|desloca|onibus|ônibus|fretado|carro|viagem|viagens|estacionamento|distancia|distância|vale.?transporte)/],
+    ["Família e dependentes", /\b(famil|filho|filha|esposa|marido|conjuge|cônjuge|dependente|escola|creche)/],
+    ["Benefícios e remuneração", /\b(benefic|salari|salário|remunera|auxilio|auxílio|ajuda de custo|plano de saude|plano de saúde|bonus|bônus|reembolso|vale)/],
+    ["Trabalho, jornada e flexibilidade", /\b(remoto|home office|hibrid|híbrid|jornada|horario|horário|escala|flexib|presencial|turno)/],
+    ["Estrutura e local de trabalho", /\b(estrutura|escritorio|escritório|predio|prédio|sede|infraestrutura|espaço|espaco|sala|equipamento|local de trabalho)/],
+    ["Carreira e pessoas", /\b(carreira|cargo|promo|desligamento|demiss|vaga|contrata|equipe|time|lider|líder|gestor)/]
   ];
-  const A_CLASSIFICAR = "A classificar";
-  const MAPA_TEMAS = new Map(TEMAS_OFICIAIS.map((t) => [chaveNome(t), t]));
-
-  // Valor da coluna Tema → nome oficial. Vazio ou fora da taxonomia → "A classificar".
-  function normalizarTema(v) {
-    const bruto = String((v && v.Value) || v || "");
-    return MAPA_TEMAS.get(chaveNome(bruto)) || A_CLASSIFICAR;
+  function classificarTema(texto) {
+    const t = String(texto || "").toLowerCase();
+    for (const [nome, re] of TEMAS) if (re.test(t) || re.test(semAcento(t))) return nome;
+    return "Outros";
   }
 
   // Registros de teste nunca entram no painel (proteção extra; o fluxo já filtra)
@@ -192,7 +190,7 @@
       .sort((a, b) => b.n - a.n || a.termo.localeCompare(b.termo, "pt-BR"));
   }
 
-  window.PortalCalc = Object.freeze({ extrairTermos, normalizarStatus, normalizarTema, TEMAS_OFICIAIS });
+  window.PortalCalc = Object.freeze({ extrairTermos, classificarTema, normalizarStatus });
 
   /* ---------------------------------------------------------
      4. DATAS
@@ -241,13 +239,14 @@
       const duvida = String((p && p.pergunta) || "").trim();
       if (!duvida || ehTeste(p.modoTeste)) return;
       const d = new Date(p.dataHora);
+      const temaLista = String((p.tema && p.tema.Value) || p.tema || "").trim();
       registros.push({
         ordem: i,
         data: isNaN(d) ? null : d,
         numero: Number(p.numero) || 0,
         duvida,
         status: normalizarStatus(p.status),
-        tema: normalizarTema(p.tema)
+        tema: temaLista || classificarTema(duvida)
       });
     });
     // Nº de exibição = ordem de chegada (1 = dúvida real mais antiga). Não altera ID nem NumeroDuvida.
@@ -287,20 +286,19 @@
      7. VISÃO GERAL
      --------------------------------------------------------- */
   function temasDisponiveis() {
-    const temNaoClass = estado.registros.some((r) => r.tema === A_CLASSIFICAR);
-    return temNaoClass ? TEMAS_OFICIAIS.concat(A_CLASSIFICAR) : TEMAS_OFICIAIS.slice();
+    return Array.from(new Set(estado.registros.map((r) => r.tema)))
+      .sort((a, b) => (a === "Outros") - (b === "Outros") || a.localeCompare(b, "pt-BR"));
   }
 
   function renderGeral() {
     const regs = estado.registros;
     el.kpiTotal.textContent = regs.length;
 
-    // Dúvidas por tema: os 8 temas oficiais (+ "A classificar" só se houver registros), maior → menor
-    const cont = new Map(temasDisponiveis().map((t) => [t, 0]));
+    // Dúvidas por tema (barras horizontais; "Outros" sempre por último)
+    const cont = new Map();
     regs.forEach((r) => cont.set(r.tema, (cont.get(r.tema) || 0) + 1));
-    const ordemBase = temasDisponiveis();
     const temas = Array.from(cont.entries()).sort((a, b) =>
-      (a[0] === A_CLASSIFICAR) - (b[0] === A_CLASSIFICAR) || b[1] - a[1] || ordemBase.indexOf(a[0]) - ordemBase.indexOf(b[0]));
+      (a[0] === "Outros") - (b[0] === "Outros") || b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
     const max = temas.reduce((m, t) => Math.max(m, t[1]), 0);
     el.bars.textContent = "";
     temas.forEach(([nome, n]) => {
