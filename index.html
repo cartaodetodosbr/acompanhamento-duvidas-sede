@@ -49,11 +49,6 @@
             <span class="title-main">Mudança de Sede</span><span class="visually-hidden"> | </span>
             <span class="title-sub">TODOS Empreendimentos</span>
           </h1>
-          <p class="route" aria-label="De Ipatinga para Ribeirão Preto">
-            <span>Ipatinga</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h15m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span>Ribeirão Preto</span>
-          </p>
           <p class="lead">Acompanhamento das principais dúvidas sobre o processo de mudança de sede de Ipatinga para Ribeirão Preto.</p>
         </div>
         <div class="update-status" aria-live="polite">
@@ -84,15 +79,7 @@
           <div class="kpis">
             <article class="kpi kpi--blue">
               <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 19.5l1.2-3.6C4.4 14.6 3.5 12.9 3.5 11c0-3.9 3.8-7 8.5-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8.5" cy="11" r="1.1" fill="currentColor"/><circle cx="12" cy="11" r="1.1" fill="currentColor"/><circle cx="15.5" cy="11" r="1.1" fill="currentColor"/></svg></span>
-              <div><p class="kpi-value" id="kpi-total">–</p><p class="kpi-label">Total de dúvidas</p></div>
-            </article>
-            <article class="kpi kpi--pink">
-              <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><rect x="5" y="3.5" width="14" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-              <div><p class="kpi-value" id="kpi-novas">–</p><p class="kpi-label">Dúvidas novas</p></div>
-            </article>
-            <article class="kpi kpi--lilac">
-              <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-              <div><p class="kpi-value" id="kpi-tratamento">–</p><p class="kpi-label">Em tratamento</p></div>
+              <div><p class="kpi-value" id="kpi-total">–</p><p class="kpi-label">Total de dúvidas</p><p class="kpi-sub">dúvidas reais</p></div>
             </article>
           </div>
 
@@ -158,9 +145,20 @@
                 </select>
               </label>
             </div>
-            <p class="q-count" id="q-count" aria-live="polite"></p>
+            <div class="q-bar">
+              <p class="q-count" id="q-count" aria-live="polite"></p>
+              <button type="button" class="btn-clear" id="btn-limpar" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Limpar filtros
+              </button>
+            </div>
             <table class="qtable">
-              <thead><tr><th scope="col" class="c-num">Nº</th><th scope="col">Pergunta</th><th scope="col" class="c-tema">Tema</th><th scope="col" class="c-status">Status</th></tr></thead>
+              <thead><tr>
+                <th scope="col" class="c-num" id="th-num" aria-sort="ascending"><button type="button" class="th-sort" data-col="n">Nº <span class="sort-arrow" aria-hidden="true">↑</span></button></th>
+                <th scope="col">Pergunta</th>
+                <th scope="col" class="c-tema" id="th-tema" aria-sort="none"><button type="button" class="th-sort" data-col="tema">Tema <span class="sort-arrow" aria-hidden="true"></span></button></th>
+                <th scope="col" class="c-status">Status</th>
+              </tr></thead>
               <tbody id="q-rows"></tbody>
             </table>
             <p class="empty" id="q-empty" hidden></p>
@@ -170,6 +168,10 @@
       </main>
     </div>
   </div>
+
+  <footer class="site-footer">
+    <div class="brand-stripe" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  </footer>
 
   <script src="portal.js"></script>
 </body>

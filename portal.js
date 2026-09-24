@@ -28,6 +28,8 @@
 
   /* ---------------------------------------------------------
      2. STATUS E TEMAS
+     O tema vem PRONTO da coluna Tema do SharePoint. O portal não classifica
+     textos: só confere se o valor é um dos 8 temas oficiais.
      --------------------------------------------------------- */
   // Só existem dois status no painel. Vazio ou "Nova/Novo" = Nova; qualquer outro valor = Em tratamento.
   function normalizarStatus(v) {
@@ -35,88 +37,144 @@
     return (!s || s === "nova" || s === "novo") ? "Nova" : "Em tratamento";
   }
 
-  // Identificação automática de tema (usada quando a coluna Tema está vazia). Primeira regra que casar vence.
-  const TEMAS = [
-    ["Cronograma e prazos", /\b(prazo|prazos|data|datas|quando|cronograma|previs|inicio|início|calendario|calendário|etapa|fase)/],
-    ["Moradia e custo de vida", /\b(morad|moraria|aluguel|casa|imovel|imóvel|apartamento|custo de vida|hospedagem|hotel)/],
-    ["Transporte e deslocamento", /\b(transporte|desloca|onibus|ônibus|fretado|carro|viagem|viagens|estacionamento|distancia|distância|vale.?transporte)/],
-    ["Família e dependentes", /\b(famil|filho|filha|esposa|marido|conjuge|cônjuge|dependente|escola|creche)/],
-    ["Benefícios e remuneração", /\b(benefic|salari|salário|remunera|auxilio|auxílio|ajuda de custo|plano de saude|plano de saúde|bonus|bônus|reembolso|vale)/],
-    ["Trabalho, jornada e flexibilidade", /\b(remoto|home office|hibrid|híbrid|jornada|horario|horário|escala|flexib|presencial|turno)/],
-    ["Estrutura e local de trabalho", /\b(estrutura|escritorio|escritório|predio|prédio|sede|infraestrutura|espaço|espaco|sala|equipamento|local de trabalho)/],
-    ["Carreira e pessoas", /\b(carreira|cargo|promo|desligamento|demiss|vaga|contrata|equipe|time|lider|líder|gestor)/]
+  const TEMAS_OFICIAIS = [
+    "Cronograma e etapas",
+    "Critérios de transferência e situação individual",
+    "Modelo de trabalho",
+    "Mobilidade e mudança",
+    "Moradia",
+    "Benefícios e apoio familiar",
+    "Remuneração e contrato",
+    "Estrutura organizacional e operação"
   ];
-  function classificarTema(texto) {
-    const t = String(texto || "").toLowerCase();
-    for (const [nome, re] of TEMAS) if (re.test(t) || re.test(semAcento(t))) return nome;
-    return "Outros";
+  const A_CLASSIFICAR = "A classificar";
+  const MAPA_TEMAS = new Map(TEMAS_OFICIAIS.map((t) => [chaveNome(t), t]));
+
+  // Valor da coluna Tema → nome oficial. Vazio ou fora da taxonomia → "A classificar".
+  function normalizarTema(v) {
+    const bruto = String((v && v.Value) || v || "");
+    return MAPA_TEMAS.get(chaveNome(bruto)) || A_CLASSIFICAR;
+  }
+
+  // Registros de teste nunca entram no painel (proteção extra; o fluxo já filtra)
+  function ehTeste(v) {
+    const s = chaveNome((v && v.Value) || v);
+    return v === true || s === "true" || s === "yes" || s === "sim" || s === "1";
   }
 
   /* ---------------------------------------------------------
-     3. NUVEM DE PALAVRAS (frequência real, sem palavras comuns)
+     3. NUVEM DE PALAVRAS
+     Calculada só a partir do texto real das dúvidas: minúsculas, sem pontuação,
+     comparação sem acento; remove palavras de ligação, números, palavras curtas
+     e termos técnicos. Expressões compostas são DETECTADAS nos próprios textos
+     (sequências que se repetem em 2+ dúvidas), sem lista fixa.
      --------------------------------------------------------- */
-  // Termos: frequência de palavras relevantes (sem stopwords), com expressões compostas e plural agrupado
   const STOPWORDS = new Set((
     "a à ao aos as às o os um uma uns umas de do da dos das d em no na nos nas num numa por pelo pela pelos pelas " +
     "para pra pro pras pros com sem sob sobre entre ate até apos após desde contra perante durante mediante " +
     "e ou mas nem que se porque pois porem porém quando onde como qual quais quanto quanta quantos quantas quem cujo " +
     "ja já nao não sim tambem também ainda mais menos muito muita muitos muitas pouco pouca bem mal so só apenas " +
-    "eu tu ele ela nos nós vos vós eles elas voce você voces vocês me te lhe lhes se nosso nossa nossos nossas " +
+    "eu tu ele ela nos nós vos vós eles elas voce você voces vocês me te lhe lhes nosso nossa nossos nossas " +
     "meu minha meus minhas seu sua seus suas dele dela deles delas isso isto aquilo esse essa esses essas este esta " +
     "estes estas aquele aquela aqueles aquelas outro outra outros outras mesmo mesma mesmos mesmas cada todo toda todos todas " +
     "algum alguma alguns algumas nenhum nenhuma qualquer quaisquer tal tais " +
-    "ser sera será serao serão seria seriam sao são era eram foi foram sendo sido sou somos esta está estao estão estava estavam " +
+    "ser sera será serao serão seria seriam sao são era eram foi foram sendo sido sou somos está estao estão estava estavam " +
     "estar estara estará estarao estarão ter tem têm tera terá terao terão teria teriam tinha tinham tido tendo " +
     "haver ha há havera haverá haveria houve fazer faz fara fará farao farão feito ficar fica ficara ficará ficarao ficarão " +
     "vai vao vão ir iremos vamos pode podem podera poderá poderao poderão poderia poderiam deve devem devera deverá deveria " +
     "precisa precisam precisar saber sabe gostaria gostariamos gostaríamos queria queremos quer existe existem " +
-    "aqui ali la lá entao então assim agora depois antes sempre nunca tambem caso sobre etc ok " +
-    "dúvida duvida dúvidas duvidas pergunta perguntas questao questão gente pessoal time equipe acerca respeito relacao relação " +
-    "forma sera algum algo coisa coisas vez vezes parte ficam ficaria ficariam teremos temos tenho tenha tenham " +
-    "vamos vou irao irão seremos sejam seja possivel possível sobre atualmente hoje puder puderem " +
-    "relacionado relacionada relacionados relacionadas possibilidade referente quanto " +
-    "definido definida definidos definir continuara continuar continuarao disponibilizar disponibiliza empresa " +
-    "novo novos nova novas mesma mesmo apos atual atuais sera gostaria pessoas"
-  ).split(/\s+/).map(semAcento));
+    "aqui ali la lá entao então assim agora depois antes sempre nunca caso etc ok " +
+    "dúvida duvida dúvidas duvidas pergunta perguntas questao questão gente acerca respeito relacao relação " +
+    "forma algo coisa coisas vez vezes parte ficam ficaria ficariam teremos temos tenho tenha tenham " +
+    "vou irao irão seremos sejam seja possivel possível atualmente hoje puder puderem " +
+    "relacionado relacionada relacionados relacionadas possibilidade referente " +
+    "definido definida definidos definir continuara continuar continuarao disponibilizar disponibiliza " +
+    "novo novos nova novas atual atuais tipo sobre bom boa dia olá ola obrigado obrigada favor"
+  ).split(/\s+/).map((w) => semAcento(w).toLowerCase()));
 
-  const EXPRESSOES = [
-    ["ribeirão preto", "Ribeirão Preto"], ["plano de saúde", "plano de saúde"], ["plano de saude", "plano de saúde"],
-    ["trabalho remoto", "trabalho remoto"], ["home office", "home office"], ["ajuda de custo", "ajuda de custo"],
-    ["auxílio mudança", "auxílio mudança"], ["auxilio mudança", "auxílio mudança"], ["auxílio moradia", "auxílio moradia"],
-    ["vale transporte", "vale-transporte"], ["vale-transporte", "vale-transporte"], ["vale alimentação", "vale-alimentação"],
-    ["vale refeição", "vale-refeição"], ["carga horária", "carga horária"], ["nova sede", "nova sede"]
-  ];
+  // Ruído técnico que não é conteúdo da dúvida
+  const TECNICOS = new Set(("http https www com br html json null undefined true false teste testes test " +
+    "modoteste sharepoint powerautomate xxx asdf").split(/\s+/));
+
+  // Conectores permitidos no meio de uma expressão composta ("ajuda de custo", "plano de saúde")
+  const CONECTORES = new Set(["de", "do", "da", "dos", "das", "e"]);
+  const MIN_DUVIDAS_EXPRESSAO = 2;
+
+  function tokenizar(texto) {
+    const limpo = String(texto || "")
+      .replace(/https?:\/\/\S+|www\.\S+|\S+@\S+/gi, " ");   // links e e-mails
+    return (limpo.match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu) || []).map((original) => {
+      const forma = original.toLowerCase();
+      const chave = semAcento(forma);
+      const maiuscula = /^\p{Lu}/u.test(original);
+      const util = chave.length >= 3 && !/\d/.test(chave) && !STOPWORDS.has(chave) && !TECNICOS.has(chave);
+      return { forma, chave, util, maiuscula };
+    });
+  }
+
+  // Candidatas: palavra+palavra, palavra+conector+palavra, palavra+palavra+palavra
+  function candidatasExpressao(tokens) {
+    const out = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const a = tokens[i], b = tokens[i + 1], c = tokens[i + 2];
+      if (!a.util || !b) continue;
+      if (b.util) out.push(i + ":2");
+      if (c && c.util && (b.util || CONECTORES.has(b.chave))) out.push(i + ":3");
+    }
+    return out;
+  }
 
   function extrairTermos(textos) {
+    const docs = textos.map(tokenizar);
+
+    // 1) Expressões que se repetem em 2+ dúvidas diferentes
+    const freqExpr = new Map();
+    docs.forEach((tk) => {
+      const vistas = new Set();
+      candidatasExpressao(tk).forEach((c) => {
+        const [i, n] = c.split(":").map(Number);
+        vistas.add(tk.slice(i, i + n).map((t) => t.chave).join(" "));
+      });
+      vistas.forEach((k) => freqExpr.set(k, (freqExpr.get(k) || 0) + 1));
+    });
+    const expressoes = new Set(Array.from(freqExpr.entries())
+      .filter(([, n]) => n >= MIN_DUVIDAS_EXPRESSAO).map(([k]) => k));
+
+    // 2) Contagem: expressão mais longa primeiro; palavras dela não contam de novo
     const contagem = new Map(); // chave → { n, formas: Map(forma → n) }
-    const somar = (chave, forma) => {
+    const somar = (chave, forma, maiuscula) => {
       let t = contagem.get(chave);
-      if (!t) { t = { n: 0, formas: new Map() }; contagem.set(chave, t); }
+      if (!t) { t = { n: 0, maiusculas: 0, formas: new Map() }; contagem.set(chave, t); }
       t.n += 1;
+      if (maiuscula) t.maiusculas += 1;
       t.formas.set(forma, (t.formas.get(forma) || 0) + 1);
     };
-
-    textos.forEach((texto) => {
-      let t = " " + String(texto || "").toLowerCase() + " ";
-      EXPRESSOES.forEach(([frase, rotulo]) => {
-        const re = new RegExp("(^|[^\\p{L}])" + frase.replace(/[-]/g, "[- ]?") + "(?=[^\\p{L}]|$)", "giu");
-        t = t.replace(re, (m, pre) => { somar("expr:" + semAcento(rotulo).toLowerCase(), rotulo); return pre + " "; });
-      });
-      (t.match(/[\p{L}\p{N}]+/gu) || []).forEach((palavra) => {
-        const chave = semAcento(palavra);
-        if (chave.length < 3 || /^\d+$/.test(chave) || STOPWORDS.has(chave)) return;
-        somar(chave, palavra);
-      });
+    docs.forEach((tk) => {
+      let i = 0;
+      while (i < tk.length) {
+        let usado = 0;
+        if (tk[i].util) {
+          for (const n of [3, 2]) {
+            const pedaco = tk.slice(i, i + n);
+            if (pedaco.length < n || !pedaco[n - 1].util) continue;
+            if (n === 3 && !pedaco[1].util && !CONECTORES.has(pedaco[1].chave)) continue;
+            const k = pedaco.map((t) => t.chave).join(" ");
+            if (expressoes.has(k)) { somar("expr:" + k, pedaco.map((t) => t.forma).join(" "), pedaco.every((t) => !t.util || t.maiuscula)); usado = n; break; }
+          }
+          if (!usado) somar(tk[i].chave, tk[i].forma, tk[i].maiuscula);
+        }
+        i += usado || 1;
+      }
     });
 
-    // Agrupa plural simples ("filhos" → "filho") quando a forma singular também aparece
+    // 3) Plural simples agrupado ("filhos" → "filho") quando o singular também aparece
     Array.from(contagem.keys()).forEach((k) => {
       if (k.startsWith("expr:") || !k.endsWith("s")) return;
-      const singular = k.slice(0, -1);
-      const alvo = contagem.get(singular);
+      const alvo = contagem.get(k.slice(0, -1));
       if (alvo && contagem.has(k)) {
         const origem = contagem.get(k);
         alvo.n += origem.n;
+        alvo.maiusculas += origem.maiusculas;
         origem.formas.forEach((n, f) => alvo.formas.set(f, (alvo.formas.get(f) || 0) + n));
         contagem.delete(k);
       }
@@ -124,14 +182,17 @@
 
     return Array.from(contagem.entries())
       .map(([chave, t]) => {
-        const forma = Array.from(t.formas.entries()).sort((a, b) => b[1] - a[1])[0][0];
+        let forma = Array.from(t.formas.entries()).sort((a, b) => b[1] - a[1])[0][0];
+        // Nome próprio (sempre escrito com inicial maiúscula nas dúvidas, ex.: Ribeirão Preto)
+        if (t.n >= 2 && t.maiusculas === t.n) {
+          forma = forma.split(" ").map((w) => CONECTORES.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        }
         return { chave, termo: forma, n: t.n };
       })
       .sort((a, b) => b.n - a.n || a.termo.localeCompare(b.termo, "pt-BR"));
   }
 
-
-  window.PortalCalc = Object.freeze({ extrairTermos, classificarTema, normalizarStatus });
+  window.PortalCalc = Object.freeze({ extrairTermos, normalizarStatus, normalizarTema, TEMAS_OFICIAIS });
 
   /* ---------------------------------------------------------
      4. DATAS
@@ -178,19 +239,18 @@
     const registros = [];
     dados.perguntas.forEach((p, i) => {
       const duvida = String((p && p.pergunta) || "").trim();
-      if (!duvida) return;
+      if (!duvida || ehTeste(p.modoTeste)) return;
       const d = new Date(p.dataHora);
-      const temaLista = String((p.tema && p.tema.Value) || p.tema || "").trim();
       registros.push({
         ordem: i,
         data: isNaN(d) ? null : d,
         numero: Number(p.numero) || 0,
         duvida,
         status: normalizarStatus(p.status),
-        tema: temaLista || classificarTema(duvida)
+        tema: normalizarTema(p.tema)
       });
     });
-    // Nº = ordem de chegada (1 = primeira dúvida recebida)
+    // Nº de exibição = ordem de chegada (1 = dúvida real mais antiga). Não altera ID nem NumeroDuvida.
     registros.sort((a, b) => ((a.data ? a.data.getTime() : 0) - (b.data ? b.data.getTime() : 0)) || a.numero - b.numero || a.ordem - b.ordem);
     registros.forEach((r, i) => { r.n = i + 1; });
     return registros;
@@ -207,14 +267,14 @@
     app: $("app"),
     tabGeral: $("tab-geral"), tabPerguntas: $("tab-perguntas"),
     panelGeral: $("panel-geral"), panelPerguntas: $("panel-perguntas"),
-    kpiTotal: $("kpi-total"), kpiNovas: $("kpi-novas"), kpiTratamento: $("kpi-tratamento"),
+    kpiTotal: $("kpi-total"),
     bars: $("bars"), barsEmpty: $("bars-empty"),
     cloud: $("cloud"), cloudEmpty: $("cloud-empty"),
     recentesRows: $("recentes-rows"), recentesEmpty: $("recentes-empty"), btnVerTodas: $("btn-ver-todas"),
     fBusca: $("f-busca"), fTema: $("f-tema"), fStatus: $("f-status"),
-    qCount: $("q-count"), qRows: $("q-rows"), qEmpty: $("q-empty"), qMore: $("q-more")
+    qCount: $("q-count"), btnLimpar: $("btn-limpar"), thNum: $("th-num"), thTema: $("th-tema"), qRows: $("q-rows"), qEmpty: $("q-empty"), qMore: $("q-more")
   };
-  const estado = { registros: [], carregado: false, limite: CONFIG.perguntasPorPagina };
+  const estado = { registros: [], carregado: false, limite: CONFIG.perguntasPorPagina, ordem: { col: "n", dir: "asc" } };
 
   function no(tag, cls, texto) {
     const n = document.createElement(tag);
@@ -226,36 +286,49 @@
   /* ---------------------------------------------------------
      7. VISÃO GERAL
      --------------------------------------------------------- */
+  function temasDisponiveis() {
+    const temNaoClass = estado.registros.some((r) => r.tema === A_CLASSIFICAR);
+    return temNaoClass ? TEMAS_OFICIAIS.concat(A_CLASSIFICAR) : TEMAS_OFICIAIS.slice();
+  }
+
   function renderGeral() {
     const regs = estado.registros;
     el.kpiTotal.textContent = regs.length;
-    el.kpiNovas.textContent = regs.filter((r) => r.status === "Nova").length;
-    el.kpiTratamento.textContent = regs.filter((r) => r.status === "Em tratamento").length;
 
-    // Dúvidas por tema (barras horizontais; "Outros" sempre por último)
-    const cont = new Map();
+    // Dúvidas por tema: os 8 temas oficiais (+ "A classificar" só se houver registros), maior → menor
+    const cont = new Map(temasDisponiveis().map((t) => [t, 0]));
     regs.forEach((r) => cont.set(r.tema, (cont.get(r.tema) || 0) + 1));
+    const ordemBase = temasDisponiveis();
     const temas = Array.from(cont.entries()).sort((a, b) =>
-      (a[0] === "Outros") - (b[0] === "Outros") || b[1] - a[1] || a[0].localeCompare(b[0], "pt-BR"));
+      (a[0] === A_CLASSIFICAR) - (b[0] === A_CLASSIFICAR) || b[1] - a[1] || ordemBase.indexOf(a[0]) - ordemBase.indexOf(b[0]));
     const max = temas.reduce((m, t) => Math.max(m, t[1]), 0);
     el.bars.textContent = "";
     temas.forEach(([nome, n]) => {
-      const li = no("li", "bar");
-      li.title = nome + ": " + n + (n === 1 ? " dúvida" : " dúvidas");
-      li.appendChild(no("span", "bar-label", nome));
-      li.appendChild(no("span", "bar-value", String(n)));
+      const li = document.createElement("li");
+      const btn = no("button", "bar" + (n === 0 ? " bar--vazio" : ""));
+      btn.type = "button";
+      btn.title = "Ver perguntas do tema " + nome;
+      btn.setAttribute("aria-label", nome + ": " + n + (n === 1 ? " dúvida" : " dúvidas") + ". Ver perguntas deste tema");
+      btn.appendChild(no("span", "bar-label", nome));
+      btn.appendChild(no("span", "bar-value", String(n)));
       const track = no("span", "bar-track");
       const fill = no("span", "bar-fill");
       fill.style.width = (max ? (n / max) * 100 : 0).toFixed(1) + "%";
       track.appendChild(fill);
-      li.appendChild(track);
+      btn.appendChild(track);
+      btn.addEventListener("click", () => {
+        el.fBusca.value = ""; el.fStatus.value = "";
+        el.fTema.value = nome;
+        abrirPerguntas();
+      });
+      li.appendChild(btn);
       el.bars.appendChild(li);
     });
-    el.barsEmpty.hidden = temas.length > 0;
+    el.barsEmpty.hidden = regs.length > 0;
 
     renderNuvem();
 
-    // Perguntas recentes
+    // Perguntas recentes (mais novas primeiro)
     const recentes = regs.slice().sort((a, b) => b.n - a.n).slice(0, CONFIG.recentes);
     preencherTabela(el.recentesRows, recentes, "");
     el.recentesEmpty.hidden = recentes.length > 0;
@@ -327,12 +400,34 @@
 
   function atualizarOpcoesTema() {
     const atual = el.fTema.value;
-    const temas = Array.from(new Set(estado.registros.map((r) => r.tema)))
-      .sort((a, b) => (a === "Outros") - (b === "Outros") || a.localeCompare(b, "pt-BR"));
+    const temas = temasDisponiveis();
     el.fTema.textContent = "";
     el.fTema.appendChild(new Option("Todos", ""));
     temas.forEach((t) => el.fTema.appendChild(new Option(t, t)));
     el.fTema.value = temas.includes(atual) ? atual : "";
+  }
+
+  const comparaTema = (a, b) => a.tema.localeCompare(b.tema, "pt-BR", { sensitivity: "base" });
+
+  function ordenar(lista) {
+    const { col, dir } = estado.ordem;
+    const sinal = dir === "asc" ? 1 : -1;
+    return lista.sort((a, b) => col === "tema"
+      ? sinal * comparaTema(a, b) || a.n - b.n
+      : sinal * (a.n - b.n));
+  }
+
+  function atualizarCabecalhos() {
+    const { col, dir } = estado.ordem;
+    [[el.thNum, "n"], [el.thTema, "tema"]].forEach(([th, c]) => {
+      const ativo = col === c;
+      th.setAttribute("aria-sort", ativo ? (dir === "asc" ? "ascending" : "descending") : "none");
+      th.querySelector(".sort-arrow").textContent = ativo ? (dir === "asc" ? "↑" : "↓") : "";
+      const btn = th.querySelector("button");
+      const rotulo = c === "n" ? "Nº" : "Tema";
+      const proxima = ativo && dir === "asc" ? (c === "n" ? "decrescente" : "Z–A") : (c === "n" ? "crescente" : "A–Z");
+      btn.title = "Ordenar por " + rotulo + " (" + proxima + ")";
+    });
   }
 
   function renderPerguntas() {
@@ -341,14 +436,16 @@
     const tema = el.fTema.value;
     const status = el.fStatus.value;
     const total = estado.registros.length;
-    const lista = estado.registros
+    const lista = ordenar(estado.registros
       .filter((r) => (!tema || r.tema === tema) && (!status || r.status === status) &&
-        (!busca || semAcento(r.duvida).toLowerCase().includes(busca)))
-      .sort((a, b) => b.n - a.n);
+        (!busca || semAcento(r.duvida).toLowerCase().includes(busca))));
 
-    el.qCount.textContent = (busca || tema || status)
+    const filtrado = !!(busca || tema || status);
+    el.qCount.textContent = filtrado
       ? lista.length + " de " + total + (total === 1 ? " pergunta" : " perguntas")
       : total + (total === 1 ? " pergunta" : " perguntas");
+    el.btnLimpar.hidden = !filtrado;
+    atualizarCabecalhos();
     preencherTabela(el.qRows, lista.slice(0, estado.limite), buscaTxt);
     el.qRows.closest("table").hidden = lista.length === 0;
     el.qEmpty.hidden = lista.length > 0;
@@ -407,6 +504,18 @@
     el.fBusca.addEventListener("input", () => { clearTimeout(t); t = setTimeout(filtrar, 180); });
     el.fTema.addEventListener("change", filtrar);
     el.fStatus.addEventListener("change", filtrar);
+    el.btnLimpar.addEventListener("click", () => {
+      el.fBusca.value = ""; el.fTema.value = ""; el.fStatus.value = "";
+      filtrar();
+      el.fBusca.focus();
+    });
+    document.querySelectorAll(".th-sort").forEach((b) => b.addEventListener("click", () => {
+      const col = b.dataset.col;
+      estado.ordem = estado.ordem.col === col
+        ? { col, dir: estado.ordem.dir === "asc" ? "desc" : "asc" }
+        : { col, dir: "asc" };
+      if (estado.carregado) renderPerguntas();
+    }));
     el.qMore.addEventListener("click", () => { estado.limite += CONFIG.perguntasPorPagina; renderPerguntas(); });
   }
 

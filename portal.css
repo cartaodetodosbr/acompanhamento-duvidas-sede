@@ -170,7 +170,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: none;
 .kpi-icon { width: 56px; height: 56px; flex: none; display: grid; place-items: center; }
 .kpi-icon svg { width: 46px; height: 46px; }
 .kpi-value { font-family: var(--font-title); font-weight: 700; font-size: 2.2rem; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; }
-.kpi-label { margin-top: 2px; font-size: 1rem; color: var(--text); }
+.kpi-label { margin-top: 2px; font-size: 1rem; font-weight: 600; color: var(--ink); }
+.kpi-sub { font-size: .85rem; color: var(--muted); }
 .kpi--blue { background: var(--blue-soft); border-color: #E0E8F8; }
 .kpi--blue .kpi-icon { color: var(--navy-2); }
 .kpi--pink { background: var(--pink-soft); border-color: var(--pink-soft-2); }
@@ -198,7 +199,10 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: none;
 
 /* Barras horizontais */
 .bars { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
+.bars li { margin: 0; }
 .bar {
+  width: 100%; padding: 6px 8px; margin: -6px -8px; box-sizing: content-box;
+  font: inherit; text-align: left; background: none; border: 0; border-radius: 8px; cursor: pointer;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 36px;
   grid-template-areas: "label value" "track track";
@@ -209,7 +213,10 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: none;
 .bar-value { grid-area: value; text-align: right; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .bar-track { grid-area: track; height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
 .bar-fill { display: block; height: 100%; border-radius: 6px; background: var(--pink-strong); min-width: 4px; }
-.bar:hover .bar-fill { background: #B81D4C; }
+.bar:hover .bar-fill, .bar:focus-visible .bar-fill { background: #B81D4C; }
+.bar:hover, .bar:focus-visible { background: #FBF3F6; }
+.bar:hover .bar-label { color: var(--pink-text); text-decoration: underline; text-underline-offset: 3px; }
+.bar--vazio .bar-fill { display: none; }
 
 /* Nuvem */
 .cloud {
@@ -259,7 +266,17 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: none;
 .field--search { position: relative; align-self: end; }
 .field--search svg { position: absolute; left: 12px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%); color: var(--muted); }
 .field--search input { padding-left: 40px; }
-.q-count { margin-top: 12px; font-size: .88rem; color: var(--muted); }
+.q-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 12px; }
+.q-count { font-size: .88rem; color: var(--muted); }
+.btn-clear { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font: inherit; font-size: .85rem; font-weight: 600;
+  color: var(--pink-text); background: var(--pink-soft); border: 1px solid var(--pink-soft-2); border-radius: 999px; cursor: pointer; }
+.btn-clear svg { width: 14px; height: 14px; }
+.btn-clear:hover { background: var(--pink-soft-2); }
+.btn-clear[hidden] { display: none; }
+.th-sort { display: inline-flex; align-items: center; gap: 4px; padding: 0; font: inherit; font-weight: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.th-sort:hover { color: var(--pink-text); }
+.sort-arrow { min-width: .8em; color: var(--pink-text); font-weight: 700; }
+.site-footer { margin-top: 32px; }
 .q-count:empty { display: none; }
 .q-more { display: flex; margin: 16px auto 0; }
 
@@ -268,7 +285,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: none;
    ========================================================= */
 @media (min-width: 700px) {
   :root { --gutter: 24px; }
-  .kpis { grid-template-columns: repeat(3, 1fr); }
+  .kpis { grid-template-columns: minmax(0, 340px); }
   .kpi { padding: 20px 18px; gap: 14px; }
   .kpi-icon { width: 50px; height: 50px; }
   .kpi-icon svg { width: 42px; height: 42px; }
